@@ -98,6 +98,27 @@ func updatePersonEndpoint(res http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(res).Encode(person)
 }
 
+func deletePersonEndpoint(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("Content-Type", "application/json")
+	params := mux.Vars(req)
+	id, _ := primitive.ObjectIDFromHex(params["id"])
+	var person Person
+	collection := client.Database("tajgo").Collection("people")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	err := collection.FindOneAndDelete(
+		ctx,
+		bson.D{
+			bson.E{"_id", id},
+		}).Decode(&person)
+
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		res.Write([]byte(`{"message": "` + err.Error() + `"}`))
+		return
+	}
+	json.NewEncoder(res).Encode(nil)
+}
+
 func main() {
 	fmt.Println("starting application")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
@@ -109,5 +130,6 @@ func main() {
 	router.HandleFunc("/person", getPeopleEndpoint).Methods("GET")
 	router.HandleFunc("/person/{id}", getPersonEndpoint).Methods("GET")
 	router.HandleFunc("/person/{id}", updatePersonEndpoint).Methods("PUT")
+	router.HandleFunc("/person/{id}", deletePersonEndpoint).Methods("DELETE")
 	http.ListenAndServe(":9090", router)
 }
